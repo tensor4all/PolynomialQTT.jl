@@ -1,5 +1,7 @@
 module PolynomialQTT
 
-# Write your package code here.
+import TensorCrossInterpolation as TCI
+
+include("interpolation.jl")
 
 end

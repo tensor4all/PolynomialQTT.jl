@@ -1,7 +1,10 @@
 name = "PolynomialQTT"
 uuid = "87f1ea11-1d4d-47cb-b1d1-07788fc25290"
 authors = ["Ritter.Marc <Ritter.Marc@physik.uni-muenchen.de> and contributors"]
-version = "1.0.0-DEV"
+version = "0.1.0"
+
+[deps]
+TensorCrossInterpolation = "b261b2ec-6378-4871-b32e-9173bb050604"
 
 [compat]
 julia = "1.8"
