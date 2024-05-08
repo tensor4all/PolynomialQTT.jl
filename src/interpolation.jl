@@ -29,11 +29,33 @@ function interpolationtensor(P::LagrangePolynomials{Float64})
     ]
 end
 
+function replacenothing(value::Union{T, Nothing}, default::T)::T where {T}
+    if isnothing(value)
+        return default
+    else
+        return value
+    end
+end
+
+function truncatedsvd(A; tolerance, maxbonddim)
+    factorization = LinearAlgebra.svd(A)
+    trunci = min(
+        replacenothing(findlast(>(tolerance), factorization.S), 1),
+        maxbonddim
+    )
+    return (
+        factorization.U[:, 1:trunci],
+        Diagonal(factorization.S[1:trunci]) * factorization.Vt[1:trunci, :]
+    )
+end
+
 function interpolatesinglescale(
     f,
     a::Float64, b::Float64,
     numbits::Int,
-    polynomialdegree::Int
+    polynomialdegree::Int;
+    tolerance=1e-12,
+    maxbonddim=typemax(Int)
 )
     P = getChebyshevGrid(polynomialdegree)
     Aleft = [
@@ -46,9 +68,17 @@ function interpolatesinglescale(
         for alpha in 0:polynomialdegree, sigma in [0, 1]
     ]
 
-    return TCI.tensortrain(vcat(
-        [reshape(Aleft, 1, 2, polynomialdegree+1)],
-        fill(Acenter, numbits-2),
-        [reshape(Aright, polynomialdegree+1, 2, 1)]
-    ))
+    A = reshape(Acenter, polynomialdegree+1, 2 * (polynomialdegree+1))
+    U, R = truncatedsvd(Aleft; tolerance, maxbonddim)
+    train = Array{Float64, 3}[reshape(U, 1, 2, size(U, 2))]
+    for ell in 2:numbits-1
+        U, R = truncatedsvd(
+            reshape(R * A, 2 * size(R, 1), polynomialdegree+1);
+            tolerance, maxbonddim
+        )
+        push!(train, reshape(U, size(last(train), 3), 2, size(U, 2)))
+    end
+    push!(train, reshape(R * Aright, size(last(train), 3), 2, 1))
+
+    return TCI.tensortrain(train)
 end
