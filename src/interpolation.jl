@@ -135,7 +135,9 @@ function interpolatesinglescale(
 
     Aleft = Array{Float64,N + 1}(undef, 2, fill(polynomialdegree + 1, N)...)
     for sigma in [0, 1], betas in Iterators.product(ntuple(x -> 0:polynomialdegree, N)...)
-        point = N == 1 ? ((sigma + P.grid[betas[1]+1]) / 2,) : ntuple((sigma + P.grid[betas[1]+1]) / 2, P.grid[betas[2:end].+1]...)
+        point = (N == 1) ?
+            ((sigma + P.grid[betas[1]+1]) / 2,) :
+            tuple((sigma + P.grid[betas[1]+1]) / 2, P.grid[collect(betas[2:end].+1)]...)
         Aleft[sigma+1, (betas .+ 1)...] = f(_scale(point)...)
     end
 
@@ -167,7 +169,10 @@ function interpolatesinglescale(
 
     train_ = Array{Float64,3}[]
     push!(train_, reshape(Aleft, 1, 2, (polynomialdegree + 1)^N))
-    for ell in 2:numbits-1, n in 1:N
+    for ell in 1:numbits-1, n in 1:N
+        if ell == 1 && n == 1
+            continue
+        end
         push!(train_, Acenter[n])
     end
     for n in 1:N
