@@ -26,3 +26,33 @@ end
 function intervallength(interval::Interval{V}) where {V}
     return interval.stop - interval.start
 end
+
+
+struct NInterval{N,V}
+    start::NTuple{N,V}
+    stop::NTuple{N,V}
+
+    function NInterval{N,V}(start::NTuple{N,V}, stop::NTuple{N,V}) where {N, V}
+        return new{N,V}(tuple(min.(start, stop)...), tuple(max.(start, stop)...))
+    end
+end
+
+function Base.in(v::NTuple{N,V}, interval::NInterval{N,V}) where {N, V}
+    return all(v .>= interval.start) && all(v .< interval.stop)
+end
+
+function midpoint(interval::NInterval{N,V})::NTuple{N,V} where {N, V}
+    return tuple(((interval.start .+ interval.stop) ./ 2)...)
+end
+
+function split(interval::NInterval{N,V}, value::NTuple{N,V}=midpoint(interval)) where {N,V}
+    if value in interval
+        return [NInterval{N,V}(interval.start, value), NInterval{N,V}(value, interval.stop)]
+    else
+        return [interval]
+    end
+end
+
+function intervallength(interval::NInterval{N,V})::NTuple{N,V} where {N,V}
+    return ntuple((interval.stop .- interval.start)...)
+end

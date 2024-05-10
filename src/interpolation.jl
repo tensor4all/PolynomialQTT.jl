@@ -49,6 +49,29 @@ function truncatedsvd(A; tolerance, maxbonddim)
     )
 end
 
+function _compress_train(train::Vector{Array{Float64,3}}, tolerance, maxbonddim)
+    L = length(train)
+
+    U, R = truncatedsvd(reshape(train[1], :, size(train[1], 3)); tolerance, maxbonddim)
+    train_compress = Array{Float64,3}[reshape(U, 1, 2, size(U, 2))]
+
+    localdims = [size(t, 2) for t in train]
+
+    for ell in 2:L-1
+        B = R * reshape(train[ell], size(R, 2), :)
+        U, R = truncatedsvd(
+            reshape(B, size(R, 1) * localdims[ell], :);
+            tolerance, maxbonddim
+        )
+        push!(train_compress, reshape(U, size(last(train_compress), 3), localdims[ell], size(U, 2)))
+    end
+
+    lasttensor = R * reshape(train[end], size(train[end], 1), :)
+    push!(train_compress, reshape(lasttensor, size(R, 1), localdims[end], 1))
+
+    return train_compress
+end
+
 function interpolatesinglescale(
     f,
     a::Float64, b::Float64,
@@ -57,9 +80,10 @@ function interpolatesinglescale(
     tolerance=1e-12,
     maxbonddim=typemax(Int)
 )
+    _scale(x) = a + (b - a) * x
     P = getChebyshevGrid(polynomialdegree)
     Aleft = [
-        f.(a + (b - a) * (sigma + P.grid[beta+1]) / 2)
+        f.(_scale.((sigma + P.grid[beta+1]) / 2))
         for sigma in [0, 1], beta in 0:polynomialdegree
     ]
     Acenter = interpolationtensor(P)
@@ -68,19 +92,93 @@ function interpolatesinglescale(
         for alpha in 0:polynomialdegree, sigma in [0, 1]
     ]
 
-    A = reshape(Acenter, polynomialdegree + 1, 2 * (polynomialdegree + 1))
-    U, R = truncatedsvd(Aleft; tolerance, maxbonddim)
-    train = Array{Float64,3}[reshape(U, 1, 2, size(U, 2))]
-    for ell in 2:numbits-1
-        U, R = truncatedsvd(
-            reshape(R * A, 2 * size(R, 1), polynomialdegree + 1);
-            tolerance, maxbonddim
-        )
-        push!(train, reshape(U, size(last(train), 3), 2, size(U, 2)))
-    end
-    push!(train, reshape(R * Aright, size(last(train), 3), 2, 1))
+    train_ = [
+        reshape(Aleft, 1, 2, size(Aleft, 2)),
+        fill(Acenter, numbits - 2)...,
+        reshape(Aright, size(Aright, 1), 2, 1)
+    ]
 
-    return TCI.tensortrain(train)
+    if tolerance == 0.0 && maxbonddim == typemax(Int)
+        return TCI.tensortrain(deepcopy(train_))
+    else
+        return TCI.tensortrain(_compress_train(train_, tolerance, maxbonddim))
+    end
+end
+
+function _direct_product(matrices...)
+    N = length(matrices)
+    result = matrices[1]
+    for i in 2:N
+        result = kron(result, matrices[i])
+    end
+    return result
+end
+
+
+"""
+`f` takes `N` Float64 arguments and returns a Float64 value.
+"""
+function interpolatesinglescale(
+    f,
+    a::NTuple{N,Float64}, b::NTuple{N,Float64},
+    numbits::Int,
+    polynomialdegree::Int;
+    tolerance=1e-12,
+    maxbonddim=typemax(Int),
+    unfoldingscheme=:interleaved
+) where {N}
+    unfoldingscheme == :interleaved || Error("unsupported unfolding scheme")
+
+    _scale(x::NTuple{N,Float64})::NTuple{N,Float64} = tuple((a .+ (b .- a) .* x)...)
+
+    P = getChebyshevGrid(polynomialdegree)
+
+    Aleft = Array{Float64,N + 1}(undef, 2, fill(polynomialdegree + 1, N)...)
+    for sigma in [0, 1], betas in Iterators.product(ntuple(x -> 0:polynomialdegree, N)...)
+        point = N == 1 ? ((sigma + P.grid[betas[1]+1]) / 2,) : ntuple((sigma + P.grid[betas[1]+1]) / 2, P.grid[betas[2:end].+1]...)
+        Aleft[sigma+1, (betas .+ 1)...] = f(_scale(point)...)
+    end
+
+    identity = Matrix{Float64}(I, polynomialdegree + 1, polynomialdegree + 1)
+
+    Acenter_ = interpolationtensor(P)
+    Acenter = Array{Float64,3}[]
+    for n in 1:N
+        push!(Acenter, zeros(Float64, (polynomialdegree + 1)^N, 2, (polynomialdegree + 1)^N))
+        for sigma in [0, 1]
+            Acenter[n][:, sigma+1, :] .= _direct_product(fill(identity, n - 1)..., Acenter_[:, sigma+1, :], fill(identity, N - n)...)
+        end
+    end
+
+    Aright_ = [
+        P(alpha, sigma / 2)
+        for alpha in 0:polynomialdegree, sigma in [0, 1]
+    ]
+    Aright = Array{Float64,3}[]
+    for n in 1:N
+        push!(
+            Aright,
+            zeros(Float64, (polynomialdegree + 1)^(N - n + 1), 2, (polynomialdegree + 1)^(N - n))
+        )
+        for sigma in [0, 1]
+            Aright[n][:, sigma+1, :] .= _direct_product(Aright_[:, sigma+1], fill(identity, N - n)...)
+        end
+    end
+
+    train_ = Array{Float64,3}[]
+    push!(train_, reshape(Aleft, 1, 2, (polynomialdegree + 1)^N))
+    for ell in 2:numbits-1, n in 1:N
+        push!(train_, Acenter[n])
+    end
+    for n in 1:N
+        push!(train_, Aright[n])
+    end
+
+    if tolerance == 0.0 && maxbonddim == typemax(Int)
+        return TCI.tensortrain(deepcopy(train_))
+    else
+        return TCI.tensortrain(_compress_train(train_, tolerance, maxbonddim))
+    end
 end
 
 function indicator(dims, oneindex)

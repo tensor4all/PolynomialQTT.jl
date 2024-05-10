@@ -20,6 +20,23 @@ import TensorCrossInterpolation as TCI
     @test all(abs.(ttdata .- origdata) .< 1e-10)
 end
 
+@testset "single-scale interpolation (N=1)" begin
+    R = 4
+    a, b = -2.8, float(pi)
+    f(x) = exp(-x^2)
+    K = 20
+
+    tt = PolynomialQTT.interpolatesinglescale(f, (a,), (b,), R, K)
+    @test TCI.rank(tt) <= K + 1
+
+    grid = QG.DiscretizedGrid{1}(R, a, b)
+    quanticsinds = QG.grididx_to_quantics.(Ref(grid), 1:2^R)
+    xs = QG.grididx_to_origcoord.(Ref(grid), 1:2^R)
+    origdata = f.(xs)
+    ttdata = tt.(quanticsinds)
+    @test all(abs.(ttdata .- origdata) .< 1e-10)
+end
+
 
 @testset "multiscale interpolation" begin
     R = 4
