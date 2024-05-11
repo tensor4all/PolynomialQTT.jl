@@ -51,11 +51,10 @@ end
 
 function _compress_train(train::Vector{Array{Float64,3}}, tolerance, maxbonddim)
     L = length(train)
+    localdims = [size(t, 2) for t in train]
 
     U, R = truncatedsvd(reshape(train[1], :, size(train[1], 3)); tolerance, maxbonddim)
-    train_compress = Array{Float64,3}[reshape(U, 1, 2, size(U, 2))]
-
-    localdims = [size(t, 2) for t in train]
+    train_compress = Array{Float64,3}[reshape(U, 1, localdims[2], size(U, 2))]
 
     for ell in 2:L-1
         B = R * reshape(train[ell], size(R, 2), :)
@@ -105,13 +104,24 @@ function interpolatesinglescale(
     end
 end
 
-function _direct_product(matrices...)
-    N = length(matrices)
-    result = matrices[1]
-    for i in 2:N
-        result = kron(result, matrices[i])
+
+# Contract core tensors for difference variables at a given resolution level
+function _direct_product_coretensors(coretensors::AbstractArray{Array{T,3}})::Array{T,3} where {T}
+    if length(coretensors) == 1
+        return coretensors[1]
     end
-    return result
+
+    # (alpha, s, beta) * (alpha', s', beta') = (alpha, alpha', s, s', beta, beta')
+    c12_1 = reshape(coretensors[1], size(coretensors[1])..., 1, 1, 1) .*
+            reshape(coretensors[2], 1, 1, 1, size(coretensors[2])...)
+    c12_2 = permutedims(c12_1, (1, 4, 2, 5, 3, 6))
+    c12 = reshape(
+        c12_2,
+        size(c12_2, 1) * size(c12_2, 2),
+        size(c12_2, 3) * size(c12_2, 4),
+        size(c12_2, 5) * size(c12_2, 6)
+    )
+    return _direct_product_coretensors([c12, coretensors[3:end]...])
 end
 
 
@@ -125,59 +135,37 @@ function interpolatesinglescale(
     polynomialdegree::Int;
     tolerance=1e-12,
     maxbonddim=typemax(Int),
-    unfoldingscheme=:interleaved
+    unfoldingscheme=:fused
 ) where {N}
-    unfoldingscheme == :interleaved || Error("unsupported unfolding scheme")
+    unfoldingscheme == :fused || Error("unsupported unfolding scheme $(unfoldingscheme)")
 
     _scale(x::NTuple{N,Float64})::NTuple{N,Float64} = tuple((a .+ (b .- a) .* x)...)
+    fillt(N, v) = ntuple(i -> v, N)
 
     P = getChebyshevGrid(polynomialdegree)
 
-    Aleft = Array{Float64,N + 1}(undef, 2, fill(polynomialdegree + 1, N)...)
-    for sigma in [0, 1], betas in Iterators.product(ntuple(x -> 0:polynomialdegree, N)...)
-        point = (N == 1) ?
-            ((sigma + P.grid[betas[1]+1]) / 2,) :
-            tuple((sigma + P.grid[betas[1]+1]) / 2, P.grid[collect(betas[2:end].+1)]...)
-        Aleft[sigma+1, (betas .+ 1)...] = f(_scale(point)...)
-    end
-
-    identity = Matrix{Float64}(I, polynomialdegree + 1, polynomialdegree + 1)
-
-    Acenter_ = interpolationtensor(P)
-    Acenter = Array{Float64,3}[]
-    for n in 1:N
-        push!(Acenter, zeros(Float64, (polynomialdegree + 1)^N, 2, (polynomialdegree + 1)^N))
-        for sigma in [0, 1]
-            Acenter[n][:, sigma+1, :] .= _direct_product(fill(identity, n - 1)..., Acenter_[:, sigma+1, :], fill(identity, N - n)...)
+    Aleft = Array{Float64,2N}(undef, fillt(N, 2)..., fillt(N, polynomialdegree + 1)...)
+    for sigmas in Iterators.product(ntuple(x -> 0:1, N)...)
+        for betas in Iterators.product(ntuple(x -> 0:polynomialdegree, N)...)
+            point = tuple(((sigmas[n] + P.grid[betas[n]+1]) / 2 for n in 1:N)...)
+            Aleft[(sigmas .+ 1)..., (betas .+ 1)...] = f(_scale(point)...)
         end
     end
+
+    Acenter_ = interpolationtensor(P)
+    Acenter = _direct_product_coretensors(fill(Acenter_, N))
 
     Aright_ = [
         P(alpha, sigma / 2)
         for alpha in 0:polynomialdegree, sigma in [0, 1]
     ]
-    Aright = Array{Float64,3}[]
-    for n in 1:N
-        push!(
-            Aright,
-            zeros(Float64, (polynomialdegree + 1)^(N - n + 1), 2, (polynomialdegree + 1)^(N - n))
-        )
-        for sigma in [0, 1]
-            Aright[n][:, sigma+1, :] .= _direct_product(Aright_[:, sigma+1], fill(identity, N - n)...)
-        end
-    end
+    Aright = _direct_product_coretensors(fill(reshape(Aright_, size(Aright_)..., 1), N))
 
-    train_ = Array{Float64,3}[]
-    push!(train_, reshape(Aleft, 1, 2, (polynomialdegree + 1)^N))
-    for ell in 1:numbits-1, n in 1:N
-        if ell == 1 && n == 1
-            continue
-        end
-        push!(train_, Acenter[n])
-    end
-    for n in 1:N
-        push!(train_, Aright[n])
-    end
+    train_ = [
+        reshape(Aleft, 1, 2^N, :),
+        fill(Acenter, numbits - 2)...,
+        Aright
+    ]
 
     if tolerance == 0.0 && maxbonddim == typemax(Int)
         return TCI.tensortrain(deepcopy(train_))
