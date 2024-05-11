@@ -100,6 +100,44 @@ end
 end
 
 
+
+@testset "multiscale interpolation (N=2)" begin
+    R = 4
+    N = 2
+
+    a, b = (0.0, 0.0), (1.0, 1.0)
+    f(x, y) = exp(-x^2 - 2 * y^2)
+    K = 10
+
+    tt = PolynomialQTT.interpolatemultiscale(f, a, b, R, K, [(0.0, 0.0)])
+
+    tts = PolynomialQTT.interpolatesinglescale(f, a, b, R, K)
+
+    @test TCI.rank(tt) <= (K + 2)^N
+
+    grid = QG.DiscretizedGrid{N}(R, a, b)
+
+    quanticsinds = [QG.grididx_to_quantics(grid, (i, j)) for i in 1:2^R, j in 1:2^R]
+    xs = [QG.grididx_to_origcoord(grid, (i, j)) for i in 1:2^R, j in 1:2^R]
+
+    origdata = [f(x...) for x in xs]
+    ttdata = tt.(quanticsinds)
+
+    @test maximum(abs, ttdata .- origdata) < 1e-10
+end
+
+@testset "NInterval" begin
+    @testset "split" begin
+
+        interval = PolynomialQTT.NInterval{2,Float64}((-1.0, -1.0), (1.0, 1.0))
+
+        @test PolynomialQTT.split(interval) == [PolynomialQTT.NInterval{2,Float64}((-1.0, -1.0), (0.0, 0.0)),
+            PolynomialQTT.NInterval{2,Float64}((0.0, -1.0), (1.0, 0.0)),
+            PolynomialQTT.NInterval{2,Float64}((-1.0, 0.0), (0.0, 1.0)),
+            PolynomialQTT.NInterval{2,Float64}((0.0, 0.0), (1.0, 1.0))]
+    end
+end
+
 @testset "_direct_product_coretensors (two tensors)" begin
     χ = 3
     coretensors = [randn(χ, 2, χ) for _ in 1:2]
@@ -108,7 +146,7 @@ end
     for i in 1:χ, j in 1:χ, k in 1:2, l in 1:2, m in 1:χ, n in 1:χ
         c12_ref[i, j, k, l, m, n] = coretensors[1][i, k, m] * coretensors[2][j, l, n]
     end
-    @assert vec(c12) ≈ vec(c12_ref)
+    @test vec(c12) ≈ vec(c12_ref)
 end
 
 
@@ -121,5 +159,5 @@ end
         c123_ref[i, j, k, l, m, n, o, p, q] =
             coretensors[1][i, l, o] * coretensors[2][j, m, p] * coretensors[3][k, n, q]
     end
-    @assert vec(c123) ≈ vec(c123_ref)
+    @test vec(c123) ≈ vec(c123_ref)
 end

@@ -41,18 +41,20 @@ function Base.in(v::NTuple{N,V}, interval::NInterval{N,V}) where {N, V}
     return all(v .>= interval.start) && all(v .< interval.stop)
 end
 
-function midpoint(interval::NInterval{N,V})::NTuple{N,V} where {N, V}
-    return tuple(((interval.start .+ interval.stop) ./ 2)...)
-end
+#function midpoint(interval::NInterval{N,V})::NTuple{N,V} where {N, V}
+    #return tuple(((interval.start .+ interval.stop) ./ 2)...)
+#end
 
-function split(interval::NInterval{N,V}, value::NTuple{N,V}=midpoint(interval)) where {N,V}
-    if value in interval
-        return [NInterval{N,V}(interval.start, value), NInterval{N,V}(value, interval.stop)]
-    else
-        return [interval]
+function split(interval::NInterval{N,V}) where {N,V}
+    intervals = NInterval{N,V}[]
+    halfintervallength = intervallength(interval) ./ 2
+    for shifts in Iterators.product(ntuple(x->0:1, N)...)
+        start_ = interval.start .+ shifts .* halfintervallength
+        push!(intervals, NInterval{N,V}(start_, start_ .+ halfintervallength))
     end
+    return intervals
 end
 
 function intervallength(interval::NInterval{N,V})::NTuple{N,V} where {N,V}
-    return ntuple((interval.stop .- interval.start)...)
+    return tuple((interval.stop .- interval.start)...)
 end
