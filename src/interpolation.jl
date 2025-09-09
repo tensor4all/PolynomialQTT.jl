@@ -50,6 +50,10 @@ function truncatedsvd(A; tolerance, maxbonddim)
 end
 
 function _compress_train(train::Vector{Array{Float64,3}}, tolerance, maxbonddim)
+    if tolerance == 0.0 && maxbonddim == typemax(Int)
+        return TCI.TensorTrain(deepcopy(train))
+    end
+
     L = length(train)
     localdims = [size(t, 2) for t in train]
 
@@ -68,7 +72,9 @@ function _compress_train(train::Vector{Array{Float64,3}}, tolerance, maxbonddim)
     lasttensor = R * reshape(train[end], size(train[end], 1), :)
     push!(train_compress, reshape(lasttensor, size(R, 1), localdims[end], 1))
 
-    return train_compress
+    tt = TCI.TensorTrain(deepcopy(train_compress))
+    TCI.compress!(tt, :SVD; tolerance=tolerance, maxbonddim=maxbonddim)
+    return tt
 end
 
 function interpolatesinglescale(
@@ -97,11 +103,7 @@ function interpolatesinglescale(
         reshape(Aright, size(Aright, 1), 2, 1)
     ]
 
-    if tolerance == 0.0 && maxbonddim == typemax(Int)
-        return TCI.tensortrain(deepcopy(train_))
-    else
-        return TCI.tensortrain(_compress_train(train_, tolerance, maxbonddim))
-    end
+    return _compress_train(train_, tolerance, maxbonddim)
 end
 
 
@@ -167,11 +169,7 @@ function interpolatesinglescale(
         Aright
     ]
 
-    if tolerance == 0.0 && maxbonddim == typemax(Int)
-        return TCI.tensortrain(deepcopy(train_))
-    else
-        return TCI.tensortrain(_compress_train(train_, tolerance, maxbonddim))
-    end
+    return _compress_train(train_, tolerance, maxbonddim)
 end
 
 function indicator(dims, oneindex)
@@ -184,9 +182,9 @@ function _evalf(f, interval::Interval{Float64}, P::LagrangePolynomials{Float64})
     return f.(interval.start .+ intervallength(interval) * P.grid)
 end
 
-function _evalf(f, interval::NInterval{N, Float64}, P::LagrangePolynomials{Float64}) where {N}
+function _evalf(f, interval::NInterval{N,Float64}, P::LagrangePolynomials{Float64}) where {N}
     NP = length(P.grid)
-    results = Array{Float64, N}(undef, ntuple(i->NP, N)...)
+    results = Array{Float64,N}(undef, ntuple(i -> NP, N)...)
     scaledgrid = [interval.start[n] .+ intervallength(interval)[n] * P.grid for n in 1:N]
 
     for inds in Iterators.product(ntuple(x -> 1:NP, N)...)
@@ -201,65 +199,14 @@ function interpolatemultiscale(
     a::Float64, b::Float64,
     numbits::Int,
     polynomialdegree::Int,
-    cusplocations::Vector{Float64}
+    cusplocations::Vector{Float64};
+    tolerance=1e-12,
+    maxbonddim=typemax(Int),
+    unfoldingscheme=:fused
 )
-    function issafe(f, interval::Interval{Float64})
-        return !any(cusplocations .∈ Ref(interval))
-    end
-
-    P = getChebyshevGrid(polynomialdegree)
-    intervallist = Interval{Float64}[]
-    newintervallist = Interval{Float64}[]
-    Acore = interpolationtensor(P)
-
-    Tfirstup = zeros(2, polynomialdegree + 1)
-    Tfirstdown = zeros(2, 0)
-    for (i, interval) in enumerate(split(Interval{Float64}(a, b)))
-        if issafe(f, interval)
-            #Tfirstup[i, :] = f.(interval.start .+ intervallength(interval) * P.grid)
-            Tfirstup[i, :] = _evalf(f, interval, P)
-        else
-            Tfirstdown = [Tfirstdown;; indicator((2,), (i,))]
-            push!(intervallist, interval)
-        end
-    end
-    Tfirst = [Tfirstup;; Tfirstdown]
-    train = [reshape(Tfirst, 1, 2, size(Tfirst, 2))]
-
-    for ell in 2:numbits-1
-        newintervallist = Interval{Float64}[]
-        qell = length(intervallist)
-        F = zeros(qell, 2, polynomialdegree + 1)
-        χ = zeros(qell, 2, 0)
-        for (i, interval) in enumerate(intervallist)
-            for (s, subinterval) in enumerate(split(interval))
-                if issafe(f, subinterval)
-                    F[i, s, :] = f.(subinterval.start .+ intervallength(subinterval) * P.grid)
-                else
-                    χ = [χ;;; indicator((qell, 2, 1), (i, s, 1))]
-                    push!(newintervallist, subinterval)
-                end
-            end
-        end
-        Ak = [Acore; F;;; zeros(polynomialdegree + 1, 2, size(χ, 3)); χ]
-        push!(train, Ak)
-        intervallist = newintervallist
-    end
-
-    Aright = [
-        P(alpha, sigma / 2)
-        for alpha in 0:polynomialdegree, sigma in [0, 1]
-    ]
-    F = zeros(length(intervallist), 2)
-    for (i, interval) in enumerate(intervallist)
-        for (s, subinterval) in enumerate(split(interval))
-            F[i, s, 1] = f(subinterval.start)
-        end
-    end
-    Alast = [Aright; F]
-    push!(train, reshape(Alast, size(Alast, 1), 2, 1))
-
-    return TCI.tensortrain(train)
+    return interpolatemultiscale(
+        f, (a,), (b,), numbits, polynomialdegree, [(c,) for c in cusplocations];
+        tolerance=tolerance, maxbonddim=maxbonddim, unfoldingscheme=unfoldingscheme)
 end
 
 
@@ -268,8 +215,13 @@ function interpolatemultiscale(
     a::NTuple{N,Float64}, b::NTuple{N,Float64},
     numbits::Int,
     polynomialdegree::Int,
-    cusplocations::Vector{NTuple{N,Float64}}
+    cusplocations::Vector{NTuple{N,Float64}};
+    tolerance=1e-12,
+    maxbonddim=typemax(Int),
+    unfoldingscheme=:fused
 ) where {N}
+    unfoldingscheme == :fused || Error("unsupported unfolding scheme $(unfoldingscheme)")
+
     function issafe(f, interval::NInterval{N,Float64})
         return !any(cusplocations .∈ Ref(interval))
     end
@@ -328,5 +280,5 @@ function interpolatemultiscale(
     Alast = [Aright; F]
     push!(train, reshape(Alast, size(Alast, 1), 2^N, 1))
 
-    return TCI.tensortrain(train)
+    return _compress_train(train, tolerance, maxbonddim)
 end

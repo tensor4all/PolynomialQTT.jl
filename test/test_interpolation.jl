@@ -110,8 +110,6 @@ end
 
     tt = PolynomialQTT.interpolatemultiscale(f, a, b, R, K, [(0.0, 0.0)])
 
-    tts = PolynomialQTT.interpolatesinglescale(f, a, b, R, K)
-
     @test TCI.rank(tt) <= (K + 2)^N
 
     grid = QG.DiscretizedGrid{N}(R, a, b)
@@ -177,5 +175,5 @@ end
     origdata = f.(xs)
     ttdata = tt.(quanticsinds)
     # skip the first element because it's zero, and use the relative error
-    @test all(abs.(ttdata[2:end] .- origdata[2:end]) ./ abs.(origdata[2:end]) .< 1e-12)
+    @test maximum(abs.(ttdata[2:end] .- origdata[2:end]) ./ abs.(origdata[2:end])) < 1e-11
 end
