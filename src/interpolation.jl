@@ -40,7 +40,7 @@ end
 function truncatedsvd(A; tolerance, maxbonddim)
     factorization = LinearAlgebra.svd(A)
     trunci = min(
-        replacenothing(findlast(>(tolerance), factorization.S), 1),
+        replacenothing(findlast(>(tolerance * factorization.S[1]), factorization.S), 1),
         maxbonddim
     )
     return (
