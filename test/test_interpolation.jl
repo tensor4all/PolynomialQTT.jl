@@ -2,6 +2,7 @@ using Test
 import PolynomialQTT
 import QuanticsGrids as QG
 import TensorCrossInterpolation as TCI
+import LinearAlgebra: norm
 
 @testset "single-scale interpolation" begin
     R = 4
@@ -110,8 +111,6 @@ end
 
     tt = PolynomialQTT.interpolatemultiscale(f, a, b, R, K, [(0.0, 0.0)])
 
-    tts = PolynomialQTT.interpolatesinglescale(f, a, b, R, K)
-
     @test TCI.rank(tt) <= (K + 2)^N
 
     grid = QG.DiscretizedGrid{N}(R, a, b)
@@ -168,7 +167,7 @@ end
     f(x) = x == 0.0 ? 0.0 : 1 / x
     K = 25
 
-    tt = PolynomialQTT.interpolatemultiscale(f, a, b, R, K, Float64[0])
+    tt = PolynomialQTT.interpolatemultiscale(f, a, b, R, K, Float64[0], tolerance=1e-12)
     @test TCI.rank(tt) <= K + 2
 
     grid = QG.DiscretizedGrid{1}(R, a, b)
@@ -176,6 +175,9 @@ end
     xs = QG.grididx_to_origcoord.(Ref(grid), 1:2^R)
     origdata = f.(xs)
     ttdata = tt.(quanticsinds)
-    # skip the first element because it's zero, and use the relative error
-    @test all(abs.(ttdata[2:end] .- origdata[2:end]) ./ abs.(origdata[2:end]) .< 1e-12)
+
+    ref = origdata
+    diff = abs.(ttdata .- origdata)
+    # We use the Frobenius norm as the result is trucated by SVD with a tolerance
+    @test norm(diff) / norm(ref) < 1e-11
 end
