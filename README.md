@@ -1,24 +1,23 @@
 # PolynomialQTT
 
 [![Build Status](https://github.com/tensor4all/PolynomialQTT.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/tensor4all/PolynomialQTT.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://tensor4all.github.io/PolynomialQTT.jl/dev)
 
 Julia implementation of multiscale polynomial interpolation for quantics/quantized tensor trains (QTTs).
 
 ## Installation
 
 ```julia
-using Pkg
-Pkg.Registry.add(RegistrySpec(url="https://github.com/tensor4all/T4ARegistry.git"))
-Pkg.add("PolynomialQTT")
+julia
+] 
+add https://github.com/tensor4all/PolynomialQTT.jl
 ```
 
 ## Algorithm
 
 This package implements the multiscale interpolative construction of quantized tensor trains as described in:
 
-**Multiscale interpolative construction of quantized tensor trains**  
-Michael Lindsey  
-[arXiv:2311.12554](https://arxiv.org/abs/2311.12554) [math.NA]
+[Multiscale interpolative construction of quantized tensor trains](https://arxiv.org/abs/2311.12554) by  Michael Lindsey  
 
 ## Features
 

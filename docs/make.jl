@@ -12,7 +12,10 @@ makedocs(;
         edit_link="main",
         assets=String[],
     ),
-    pages=["Home" => "index.md"],
+    pages=["Home" => "index.md",
+    "Examples" => "examples.md",
+    "API Reference" => "apireference.md",]
+    
 )
 
 deploydocs(; repo="github.com/tensor4all/PolynomialQTT.jl.git", devbranch="main")

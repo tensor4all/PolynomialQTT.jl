@@ -1,6 +1,6 @@
 name = "PolynomialQTT"
 uuid = "87f1ea11-1d4d-47cb-b1d1-07788fc25290"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Ritter.Marc <Ritter.Marc@physik.uni-muenchen.de> and contributors"]
 
 [deps]
