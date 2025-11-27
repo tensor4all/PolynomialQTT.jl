@@ -3,8 +3,6 @@
 Documentation for PolynomialQTT.jl
 
 ```@example 
-using Revise
-
 using LinearAlgebra
 import PolynomialQTT
 import TensorCrossInterpolation as TCI
