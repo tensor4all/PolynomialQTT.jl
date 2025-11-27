@@ -1,6 +1,8 @@
 # Examples 
 
-```@example 
+## 1D Coulomb kernel
+
+```@example 1D
 using LinearAlgebra
 import PolynomialQTT
 import TensorCrossInterpolation as TCI
@@ -41,8 +43,6 @@ lines!(ax, plotx, origdata, linestyle=:dash, color=:black, label=L"f(x)")
 Legend(fig[1:2, 2], ax)
 ylims!(axerr, 1e-15, 1e1)
 ylims!(axerrK, 1e-15, 1e1)
-
-save("multiscale_1dcoulombkernel.pdf", fig)
 
 fig
 ```

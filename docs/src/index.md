@@ -1,6 +1,6 @@
 # PolynomialQTT.jl
 
-This is the documentation for [PolynomialQTT.jl](https://github.com/tensor4all/PolynomialQTT.jl).
+This is the documentation for [PolynomialQTT.jl](https://github.com/tensor4all/PolynomialQTT.jl). The code is based on the paper [Multiscale interpolative construction of quantized tensor trains](https://arxiv.org/abs/2311.12554) by  Michael Lindsey. 
 
 ## Installation
 
@@ -24,5 +24,5 @@ tt = PolynomialQTT.interpolatesinglescale(f, -2.0, 2.0, 8, 20) # TensorCrossInte
 
 # Multi-scale interpolation with singularity
 g(x) = x == 0.0 ? 0.0 : 1/x
-tt_ms = PolynomialQTT.interpolatemultiscale(g, 0.0, 1.0, 12, 25, [0.0])
+tt_multiscale = PolynomialQTT.interpolatemultiscale(g, 0.0, 1.0, 12, 25, [0.0])
 ```
