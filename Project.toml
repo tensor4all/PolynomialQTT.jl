@@ -2,6 +2,7 @@ name = "PolynomialQTT"
 uuid = "87f1ea11-1d4d-47cb-b1d1-07788fc25290"
 version = "0.1.1"
 authors = ["Ritter.Marc <Ritter.Marc@physik.uni-muenchen.de> and contributors"]
+repository = "https://github.com/tensor4all/PolynomialQTT.jl"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"

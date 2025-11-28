@@ -18,4 +18,4 @@ makedocs(;
     
 )
 
-deploydocs(; repo="github.com/tensor4all/PolynomialQTT.jl.git", devbranch="main")
+deploydocs(; repo="github.com/tensor4all/PolynomialQTT.jl.git", devbranch="main", target = "build", branch = "gh-pages")
