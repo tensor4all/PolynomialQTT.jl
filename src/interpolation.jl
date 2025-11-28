@@ -126,10 +126,6 @@ function _direct_product_coretensors(coretensors::AbstractArray{Array{T,3}})::Ar
     return _direct_product_coretensors([c12, coretensors[3:end]...])
 end
 
-
-"""
-`f` takes `N` Float64 arguments and returns a Float64 value.
-"""
 function interpolatesinglescale(
     f,
     a::NTuple{N,Float64}, b::NTuple{N,Float64},
