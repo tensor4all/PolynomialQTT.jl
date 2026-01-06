@@ -14,11 +14,11 @@ import LinearAlgebra: norm
     @test TCI.rank(tt) <= K + 1
 
     grid = QG.DiscretizedGrid{1}(R, a, b)
-    quanticsinds = QG.grididx_to_quantics.(Ref(grid), 1:2^R)
-    xs = QG.grididx_to_origcoord.(Ref(grid), 1:2^R)
+    quanticsinds = QG.grididx_to_quantics.(Ref(grid), 1:(2^R))
+    xs = QG.grididx_to_origcoord.(Ref(grid), 1:(2^R))
     origdata = f.(xs)
     ttdata = tt.(quanticsinds)
-    @test all(abs.(ttdata .- origdata) .< 1e-10)
+    @test all(abs.(ttdata .- origdata) .< 1.0e-10)
 end
 
 @testset "single-scale interpolation (N=1)" begin
@@ -31,11 +31,11 @@ end
     @test TCI.rank(tt) <= K + 1
 
     grid = QG.DiscretizedGrid{1}(R, a, b)
-    quanticsinds = QG.grididx_to_quantics.(Ref(grid), 1:2^R)
-    xs = QG.grididx_to_origcoord.(Ref(grid), 1:2^R)
+    quanticsinds = QG.grididx_to_quantics.(Ref(grid), 1:(2^R))
+    xs = QG.grididx_to_origcoord.(Ref(grid), 1:(2^R))
     origdata = f.(xs)
     ttdata = tt.(quanticsinds)
-    @test all(abs.(ttdata .- origdata) .< 1e-10)
+    @test all(abs.(ttdata .- origdata) .< 1.0e-10)
 end
 
 
@@ -49,15 +49,15 @@ end
     @test TCI.rank(tt) <= (K + 1)^2
     @test length(tt) == R
 
-    grid = QG.DiscretizedGrid{2}(R, a, b; unfoldingscheme=:fused)
+    grid = QG.DiscretizedGrid{2}(R, a, b; unfoldingscheme = :fused)
 
-    quanticsinds = [QG.grididx_to_quantics(grid, (i, j)) for i in 1:2^R, j in 1:2^R]
-    xs = [QG.grididx_to_origcoord(grid, (i, j)) for i in 1:2^R, j in 1:2^R]
+    quanticsinds = [QG.grididx_to_quantics(grid, (i, j)) for i in 1:(2^R), j in 1:(2^R)]
+    xs = [QG.grididx_to_origcoord(grid, (i, j)) for i in 1:(2^R), j in 1:(2^R)]
 
     origdata = [f(x...) for x in xs]
     ttdata = tt.(quanticsinds)
 
-    @test all(abs.(ttdata .- origdata) .< 1e-10)
+    @test all(abs.(ttdata .- origdata) .< 1.0e-10)
 end
 
 
@@ -71,15 +71,15 @@ end
     @test TCI.rank(tt) <= (K + 1)^3
     @test length(tt) == R
 
-    grid = QG.DiscretizedGrid{3}(R, a, b; unfoldingscheme=:fused)
+    grid = QG.DiscretizedGrid{3}(R, a, b; unfoldingscheme = :fused)
 
-    quanticsinds = [QG.grididx_to_quantics(grid, (i, j, k)) for i in 1:2^R, j in 1:2^R, k in 1:2^R]
-    xs = [QG.grididx_to_origcoord(grid, (i, j, k)) for i in 1:2^R, j in 1:2^R, k in 1:2^R]
+    quanticsinds = [QG.grididx_to_quantics(grid, (i, j, k)) for i in 1:(2^R), j in 1:(2^R), k in 1:(2^R)]
+    xs = [QG.grididx_to_origcoord(grid, (i, j, k)) for i in 1:(2^R), j in 1:(2^R), k in 1:(2^R)]
 
     origdata = [f(x...) for x in xs]
     ttdata = tt.(quanticsinds)
 
-    @test all(abs.(ttdata .- origdata) .< 1e-7)
+    @test all(abs.(ttdata .- origdata) .< 1.0e-7)
 end
 
 
@@ -93,11 +93,11 @@ end
     @test TCI.rank(tt) <= K + 2
 
     grid = QG.DiscretizedGrid{1}(R, a, b)
-    quanticsinds = QG.grididx_to_quantics.(Ref(grid), 1:2^R)
-    xs = QG.grididx_to_origcoord.(Ref(grid), 1:2^R)
+    quanticsinds = QG.grididx_to_quantics.(Ref(grid), 1:(2^R))
+    xs = QG.grididx_to_origcoord.(Ref(grid), 1:(2^R))
     origdata = f.(xs)
     ttdata = tt.(quanticsinds)
-    @test all(abs.(ttdata .- origdata) .< 1e-12)
+    @test all(abs.(ttdata .- origdata) .< 1.0e-12)
 end
 
 
@@ -115,24 +115,26 @@ end
 
     grid = QG.DiscretizedGrid{N}(R, a, b)
 
-    quanticsinds = [QG.grididx_to_quantics(grid, (i, j)) for i in 1:2^R, j in 1:2^R]
-    xs = [QG.grididx_to_origcoord(grid, (i, j)) for i in 1:2^R, j in 1:2^R]
+    quanticsinds = [QG.grididx_to_quantics(grid, (i, j)) for i in 1:(2^R), j in 1:(2^R)]
+    xs = [QG.grididx_to_origcoord(grid, (i, j)) for i in 1:(2^R), j in 1:(2^R)]
 
     origdata = [f(x...) for x in xs]
     ttdata = tt.(quanticsinds)
 
-    @test maximum(abs, ttdata .- origdata) < 1e-10
+    @test maximum(abs, ttdata .- origdata) < 1.0e-10
 end
 
 @testset "NInterval" begin
     @testset "split" begin
 
-        interval = PolynomialQTT.NInterval{2,Float64}((-1.0, -1.0), (1.0, 1.0))
+        interval = PolynomialQTT.NInterval{2, Float64}((-1.0, -1.0), (1.0, 1.0))
 
-        @test PolynomialQTT.split(interval) == [PolynomialQTT.NInterval{2,Float64}((-1.0, -1.0), (0.0, 0.0)),
-            PolynomialQTT.NInterval{2,Float64}((0.0, -1.0), (1.0, 0.0)),
-            PolynomialQTT.NInterval{2,Float64}((-1.0, 0.0), (0.0, 1.0)),
-            PolynomialQTT.NInterval{2,Float64}((0.0, 0.0), (1.0, 1.0))]
+        @test PolynomialQTT.split(interval) == [
+            PolynomialQTT.NInterval{2, Float64}((-1.0, -1.0), (0.0, 0.0)),
+            PolynomialQTT.NInterval{2, Float64}((0.0, -1.0), (1.0, 0.0)),
+            PolynomialQTT.NInterval{2, Float64}((-1.0, 0.0), (0.0, 1.0)),
+            PolynomialQTT.NInterval{2, Float64}((0.0, 0.0), (1.0, 1.0)),
+        ]
     end
 end
 
@@ -140,7 +142,7 @@ end
     χ = 3
     coretensors = [randn(χ, 2, χ) for _ in 1:2]
     c12 = PolynomialQTT._direct_product_coretensors(coretensors)
-    c12_ref = Array{Float64,6}(undef, χ, χ, 2, 2, χ, χ)
+    c12_ref = Array{Float64, 6}(undef, χ, χ, 2, 2, χ, χ)
     for i in 1:χ, j in 1:χ, k in 1:2, l in 1:2, m in 1:χ, n in 1:χ
         c12_ref[i, j, k, l, m, n] = coretensors[1][i, k, m] * coretensors[2][j, l, n]
     end
@@ -152,7 +154,7 @@ end
     χ = 3
     coretensors = [randn(χ, 2, χ) for _ in 1:3]
     c123 = PolynomialQTT._direct_product_coretensors(coretensors)
-    c123_ref = Array{Float64,9}(undef, χ, χ, χ, 2, 2, 2, χ, χ, χ)
+    c123_ref = Array{Float64, 9}(undef, χ, χ, χ, 2, 2, 2, χ, χ, χ)
     for i in 1:χ, j in 1:χ, k in 1:χ, l in 1:2, m in 1:2, n in 1:2, o in 1:χ, p in 1:χ, q in 1:χ
         c123_ref[i, j, k, l, m, n, o, p, q] =
             coretensors[1][i, l, o] * coretensors[2][j, m, p] * coretensors[3][k, n, q]
@@ -167,17 +169,17 @@ end
     f(x) = x == 0.0 ? 0.0 : 1 / x
     K = 25
 
-    tt = PolynomialQTT.interpolatemultiscale(f, a, b, R, K, Float64[0], tolerance=1e-12)
+    tt = PolynomialQTT.interpolatemultiscale(f, a, b, R, K, Float64[0], tolerance = 1.0e-12)
     @test TCI.rank(tt) <= K + 2
 
     grid = QG.DiscretizedGrid{1}(R, a, b)
-    quanticsinds = QG.grididx_to_quantics.(Ref(grid), 1:2^R)
-    xs = QG.grididx_to_origcoord.(Ref(grid), 1:2^R)
+    quanticsinds = QG.grididx_to_quantics.(Ref(grid), 1:(2^R))
+    xs = QG.grididx_to_origcoord.(Ref(grid), 1:(2^R))
     origdata = f.(xs)
     ttdata = tt.(quanticsinds)
 
     ref = origdata
     diff = abs.(ttdata .- origdata)
     # We use the Frobenius norm as the result is trucated by SVD with a tolerance
-    @test norm(diff) / norm(ref) < 1e-11
+    @test norm(diff) / norm(ref) < 1.0e-11
 end
