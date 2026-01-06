@@ -1,48 +1,45 @@
 # Examples 
 
-## 1D Coulomb kernel
+## Highly oscillatory function interpolation
 
-```@example 1D
-using LinearAlgebra
-import PolynomialQTT
-import TensorCrossInterpolation as TCI
+In this example, we demonstrate how to do multi-scale interpolation of a highly oscillatory function using Polynomial QTT representation. We consider the function ``f(x) = \cos(x^2) + \sin(πx)`` on the interval ``[-2, \sqrt{2}]`` using ``2^8`` discretization points. 
+
+We begin by loading the necessary packages and defining the function and grid parameters.
+
+```@example oscillatory
+using PolynomialQTT
+import TensorCrossInterpolation as TCI 
+
+f(x) = cos(x^2) + sin(π * x)
+a,b = -2.0, sqrt(2)
+K = 10
+R = 8;
+```
+We call the `interpolatesinglescale` function to perform the interpolation. This function takes the function `f`, the interval endpoints `a` and `b`, the number of interpolation nodes `K`, and the number of tensor cores `R` as inputs.
+
+```@example oscillatory
+tt = PolynomialQTT.interpolatesinglescale(f, a, b, R, K)
+```
+This returns a `TensorTrain` object. Using [QuanticsGrids.jl](https://github.com/tensor4all/QuanticsGrids.jl) we can plot the results and compare the interpolated function with the original function. 
+
+```@example oscillatory
 import QuanticsGrids as QG
 using CairoMakie
-using LaTeXStrings
 
-import Pkg; Pkg.status()
-
-R = 12
-a, b = 0.0, 1.0
-f(x) = x == 0.0 ? 0.0 : 1/x
-Kmax = 25
-
-grid = QG.DiscretizedGrid{1}(R, a, b)
+grid = QG.DiscretizedGrid(R, a, b)
 
 plotquantics = QG.grididx_to_quantics.(Ref(grid), 1:2^R)
 plotx = QG.grididx_to_origcoord.(Ref(grid), 1:2^R)
 origdata = f.(plotx)
+ttdata = tt.(plotquantics)
 
-fig = Figure()
-ax = Axis(fig[1, 1], xlabel=L"x", title="multi-scale interpolation")
-axerr = Axis(fig[2, 1], yscale=log10, xlabel=L"x", ylabel="error")
-axbonddim = Axis(fig[1, 3], xlabel=L"\ell", ylabel=L"\chi_\ell", title="bond dimensions")
-axerrK = Axis(fig[2, 3], yscale=log10, xlabel=L"K", ylabel="max error")
-
-for K in 1:4:Kmax
-    tt = PolynomialQTT.interpolatemultiscale(f, a, b, R, K, Float64[0])
-    ttdata = tt.(plotquantics)
-    colorkwargs = (:color=>K, :colorrange=>(1, Kmax), :colormap=>:coolwarm)
-    lines!(ax, plotx, ttdata, label=L"K=%$K"; colorkwargs...)
-    lines!(axerr, plotx, abs.(ttdata .- origdata); colorkwargs...)
-    scatterlines!(axbonddim, 1:R-1, TCI.linkdims(tt); colorkwargs...)
-    scatter!(axerrK, K, maximum(abs, ttdata .- origdata); colorkwargs...)
+let 
+    fig = Figure()
+    ax = Axis(fig[1, 1], xlabel=L"x", ylabel=L"f(x)", title="Single-scale interpolation")
+    lines!(ax, plotx, f.(plotx), label=L"f(x)", linewidth=2.0, linestyle=:solid)
+    lines!(ax, plotx, ttdata, label=L"K=%$K", linewidth=2.0,linestyle=:dash)
+    axislegend(ax, pos=:best)
+    fig
 end
-lines!(ax, plotx, origdata, linestyle=:dash, color=:black, label=L"f(x)")
-
-Legend(fig[1:2, 2], ax)
-ylims!(axerr, 1e-15, 1e1)
-ylims!(axerrK, 1e-15, 1e1)
-
-fig
 ```
+We see in this case we are able to achieve a good approximation of the highly oscillatory function using only ``K=10`` interpolation nodes. 
