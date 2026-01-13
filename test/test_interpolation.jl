@@ -183,3 +183,39 @@ end
     # We use the Frobenius norm as the result is trucated by SVD with a tolerance
     @test norm(diff) / norm(ref) < 1.0e-11
 end
+
+@testset "estimate_interpolation_error (N=1)" begin
+    a, b = 0.0, 1.0
+    f(x) = sin(2 * π * x)
+    K = 5
+    P = PolynomialQTT.getChebyshevGrid(K)
+    interval = PolynomialQTT.Interval{Float64}(a, b)
+    
+    err = PolynomialQTT.estimate_interpolation_error(f, interval, P)
+    @test err >= 0.0
+    @test err < 1.0
+end
+
+@testset "estimate_interpolation_error (N=2)" begin
+    a, b = (-1.0, -1.0), (1.0, 1.0)
+    f(x, y) = sin(π * x) * cos(π * y)
+    K = 5
+    P = PolynomialQTT.getChebyshevGrid(K)
+    interval = PolynomialQTT.NInterval{2, Float64}(a, b)
+    
+    err = PolynomialQTT.estimate_interpolation_error(f, interval, P)
+    @test err >= 0.0
+    @test err < 1.0
+end
+
+@testset "estimate_interpolation_error (N=3)" begin
+    a, b = (0.0, 0.0, 0.0), (1.0, 1.0, 1.0)
+    f(x, y, z) = exp(-x^2 - y^2 - z^2)
+    K = 10
+    P = PolynomialQTT.getChebyshevGrid(K)
+    interval = PolynomialQTT.NInterval{3, Float64}(a, b)
+    
+    err = PolynomialQTT.estimate_interpolation_error(f, interval, P)
+    @test err >= 0.0
+    @test err < 1.0e-8
+end
